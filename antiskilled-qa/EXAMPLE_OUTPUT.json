@@ -1,0 +1,50 @@
+{
+  "video_id": "-yfJIVV8i7E",
+  "evaluated_at": "2026-01-03T10:30:00Z",
+  "evaluator": "anthropic/claude-sonnet-4",
+  "scores": {
+    "accuracy_score": 9.0,
+    "completeness_score": 8.5,
+    "readability_score": 9.5,
+    "signal_quality_score": 8.0,
+    "hype_assessment_score": 9.0,
+    "structural_quality_score": 9.0,
+    "claims_quality_score": 7.5
+  },
+  "total_score": 8.64,
+  "grade": "B",
+  "issues": {
+    "accuracy": [
+      "Price $81.50 correct, but current_price field is string type instead of Decimal"
+    ],
+    "completeness": [
+      "Missing secondary ticker GOOGL in Claims extraction (only present in Signals)"
+    ],
+    "readability": [],
+    "signal_quality": [
+      "Conviction 0.85 slightly high given creator's 'not top buy for 2026' reservation"
+    ],
+    "hype_assessment": [],
+    "structural_quality": [],
+    "claims_quality": [
+      "DCF fair value $154 target price not extracted as standalone Claim",
+      "Missing horizon_days in existing Claims (should be ~365-1825 for 'long-term')"
+    ]
+  },
+  "recommendations": [
+    "Convert current_price to Decimal type for consistency with other price fields",
+    "Extract DCF $154 target as separate Claim with claim_type='price_target'",
+    "Add horizon_days to Claims based on '5+ years long-term' mention (suggest 1825 days)",
+    "Consider adjusting conviction to 0.75-0.8 to reflect creator's cautious stance on 2026",
+    "Include secondary_tickers in Claims for complete tracking"
+  ],
+  "strengths": [
+    "Excellent accuracy in financial metrics extraction (ROIC 21.8%, CAGR 36%, revenue $3B→$44B)",
+    "Comprehensive risk discussion captured (AV competition from Tesla, Alphabet, China)",
+    "Natural, readable summaries without jargon overload or machine-generated feel",
+    "Well-structured 7 sections covering all major video topics with relevant highlight_tokens",
+    "Appropriate hype assessment - correctly identified as data-driven analysis (lexical 3.2, evidence 1.4)"
+  ],
+  "evaluation_duration_seconds": 12.5,
+  "tokens_used": 3847
+}

@@ -1,0 +1,47 @@
+{
+  "video_id": "VIDEO_ID",
+  "evaluated_at": "2026-01-03T10:00:00Z",
+  "evaluator": "manual",
+  "scores": {
+    "accuracy_score": 0.0,
+    "completeness_score": 0.0,
+    "readability_score": 0.0,
+    "signal_quality_score": 0.0,
+    "hype_assessment_score": 0.0,
+    "structural_quality_score": 0.0,
+    "claims_quality_score": 0.0
+  },
+  "issues": {
+    "accuracy": [
+      "示例: 价格 $81.50 错误，实际为 $80.00"
+    ],
+    "completeness": [
+      "示例: 遗漏主要 ticker TSLA"
+    ],
+    "readability": [
+      "示例: Summary 有明显机器味"
+    ],
+    "signal_quality": [
+      "示例: conviction 0.9 过高，博主语气保留"
+    ],
+    "hype_assessment": [
+      "示例: lexical 打分 8.0 过高，实际无煽动词汇"
+    ],
+    "structural_quality": [
+      "示例: 仅 2 个 sections，不足以覆盖视频内容"
+    ],
+    "claims_quality": [
+      "示例: 遗漏明确价格目标 $154 的 Claim"
+    ]
+  },
+  "recommendations": [
+    "示例: 修正价格数据为 $80.00",
+    "示例: 添加遗漏的 TSLA ticker",
+    "示例: 降低 conviction 至 0.7-0.8"
+  ],
+  "strengths": [
+    "示例: 财务指标提取精准",
+    "示例: 风险讨论完整",
+    "示例: Summary 可读性强"
+  ]
+}
