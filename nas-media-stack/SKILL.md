@@ -231,6 +231,91 @@ POST /api/v3/command → {"name":"MoviesSearch","movieIds":[id]}
 | Uptime Kuma | 3001 | Monitoring |
 | FlareSolverr | 8191 | CF bypass |
 
+## Post-Deploy: Enhancements
+
+### 11. Jellyfin Transcoding Optimization
+
+After initial setup, optimize hardware transcoding settings via API:
+
+```bash
+# GET current encoding config, modify, then POST back
+GET /System/Configuration/encoding
+POST /System/Configuration/encoding
+```
+
+Key settings for Intel QSV (J4125/N5105/etc):
+- `HardwareDecodingCodecs`: enable ALL formats `["h264","hevc","mpeg2video","vc1","vp8","vp9","av1"]`
+- `AllowHevcEncoding`: `true` (HEVC hardware encoding)
+- `EnableVppTonemapping`: `true` (HDR→SDR for QSV, better than OpenCL)
+- `EnableIntelLowPowerH264HwEncoder`: `true`
+- `EnableIntelLowPowerHevcHwEncoder`: `true`
+- `EnableDecodingColorDepth10Hevc`: `true`
+- `EnableDecodingColorDepth10Vp9`: `true`
+
+### 12. Subtitle Provider Configuration
+
+Bazarr subtitle providers in `config.yaml`:
+
+**Free (no API key needed):**
+- `opensubtitlescom` — requires account (register + verify email) AND a Developer API key from https://www.opensubtitles.com/consumers. Set `api_key` field in config.
+- `animetosho` — anime subtitles
+- `subf2m` — requires `user_agent` string in config
+- `podnapisi` — multilingual
+
+**Need API key:**
+- `assrt` — best Chinese subtitle source, register at assrt.net for token
+- `jimaku` — Japanese anime subtitles
+- `subdl` — multilingual, needs API key
+
+**Removed in Bazarr 1.5+:** zimuku, shooter (deprecated due to reliability issues)
+
+**Throttle fix:** If providers show ConfigurationError/throttled, delete `$DOCKER_ROOT/bazarr/config/config/throttled_providers.dat` and restart.
+
+**Language profiles:** Stored in SQLite DB `$DOCKER_ROOT/bazarr/config/db/bazarr.db`, table `table_languages_profiles`. Can be modified via SQL.
+
+### 13. Metadata & Chinese Localization
+
+**Jellyfin metadata language:**
+```bash
+# Set in System Configuration
+PreferredMetadataLanguage: "zh-CN"
+MetadataCountryCode: "CN"
+UICulture: "zh-CN"
+```
+
+**Douban plugin for Chinese metadata:**
+1. Add repository: `https://xzonn.top/JellyfinPluginDouban/manifest.json`
+2. Install Douban plugin, restart Jellyfin
+3. Set Douban as first metadata fetcher in library options via API:
+   - `GET /Library/VirtualFolders` → get LibraryOptions
+   - Update `TypeOptions[Movie].MetadataFetchers` to `["Douban","TheMovieDb",...]`
+   - `POST /Library/VirtualFolders/LibraryOptions`
+
+**Manual metadata (when TMDB/Douban don't have Chinese data):**
+- `GET /Users/{userId}/Items/{itemId}` → modify Name, OriginalTitle, Overview, Genres → `POST /Items/{itemId}`
+
+### 14. Subtitle Appearance (remove black background)
+
+Subtitle background must be set per-client in DisplayPreferences:
+
+```bash
+# Set for ALL client types
+for client in emby jellyfin "Jellyfin Web"; do
+  # GET DisplayPreferences, update CustomPrefs.subtitleAppearance, POST back
+  subtitleAppearance = {"dropShadow":3,"font":"","textBackground":"transparent","textColor":"#FFFFFFFF","textSize":"medium"}
+done
+```
+
+**Note:** Third-party apps (Findroid, Swiftfin) may use their own subtitle rendering and ignore server settings. Configure in-app.
+
+### 15. Passwall ACL for NAS
+
+If NAS uses iStoreOS as gateway with Passwall proxy:
+- **Don't set NAS to full direct** — subtitle sites and TMDB need proxy access
+- **Don't set NAS to full proxy** — BT data transfer doesn't need proxy (high ports not in Passwall's `tcp_redir_ports`)
+- **Best approach:** Use default global rules (GFW list based routing). NAS traffic automatically goes direct for domestic, proxy for blocked sites.
+- Passwall `tcp_redir_ports` only proxies specific ports (80,443,8080,etc), BT peer traffic on random high ports goes direct automatically.
+
 ## Troubleshooting
 
 - **qBit password reset on restart**: Password set via API may not persist. Re-set after each restart.
