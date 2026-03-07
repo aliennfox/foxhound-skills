@@ -26,6 +26,8 @@ Default behavior is confirmation-first: search, rank, recommend, wait for select
 - Always search first, rank the candidates, and present a shortlist to the user.
 - The user must explicitly choose a result by number or exact title before any download begins.
 - Only skip this confirmation step if the user clearly identifies a previously listed result (for example: `下第6个`, `下载刚才那个 4K Remux`).
+- Once a shortlist is shown, treat it as a frozen result snapshot for that interaction. Do not remap the user's number against a fresh live search.
+- If the original chosen result is no longer available, say so clearly and ask the user to pick again from a refreshed list.
 
 ### Step 1: Determine Media Type
 - Movie keywords: 电影, movie, 片子, BluRay, Remux, 1080p, 2160p, 年份明确的单片
@@ -42,6 +44,7 @@ Header: X-Api-Key: {prowlarr_api_key}
 
 Parse results and present to user as a ranked shortlist with:
 - Number
+- Stable result ID (internal snapshot ID, not shown unless needed)
 - Title
 - Size (human readable)
 - Seeders
@@ -51,6 +54,7 @@ Parse results and present to user as a ranked shortlist with:
 
 Sort by seeders descending, show the top 10-20 results depending on noise level.
 Deduplicate obviously identical releases from different indexers when possible.
+Persist the exact shortlist used for display as the authoritative snapshot for follow-up commands like `下第6个`.
 Always include a brief recommendation section such as:
 - Best value
 - Best quality
@@ -66,7 +70,9 @@ Each item should include short inline notes for size, seeders, source, and stand
 
 ### Step 3: User Selection
 Wait for the user to pick a result by number or exact title.
+Resolve the choice against the stored shortlist snapshot from the previous reply, not a fresh search.
 Do not begin downloading until the user explicitly confirms the choice.
+If the user references a number but no snapshot is available, re-run the search and present a new numbered list instead of guessing.
 
 ### Step 4: Download via qBittorrent
 Option A (preferred): Add the chosen movie to Radarr or the chosen show to Sonarr for automated management.
@@ -77,6 +83,8 @@ Rules:
 - If the user says `下载这个` while replying to a previously listed result, treat that as valid confirmation.
 - For movies, prefer Radarr so the final file is renamed and imported cleanly.
 - For shows, prefer Sonarr so season/episode structure stays correct.
+- Before sending a download command, verify that the chosen release title still matches the stored snapshot entry.
+- If the cached result expired or the client cannot fetch that exact release, stop and tell the user the exact chosen item is no longer available; do not silently substitute a different one.
 
 qBit API:
 - Login: POST /api/v2/auth/login
