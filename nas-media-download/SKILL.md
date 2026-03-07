@@ -7,6 +7,7 @@ description: Search, download and manage media on NAS via Prowlarr/qBittorrent/R
 
 ## Overview
 Search and download media to NAS, auto-import to Jellyfin.
+Default behavior is confirmation-first: search, rank, recommend, wait for selection, then download.
 
 ## Environment
 - NAS IP: 192.168.10.45 (SSH as admin)
@@ -20,9 +21,18 @@ Search and download media to NAS, auto-import to Jellyfin.
 
 ## Workflow
 
+## Default Interaction Rule
+- When the user says `download`, `下这个`, `帮我下`, or otherwise asks to download media, do **not** immediately start the download.
+- Always search first, rank the candidates, and present a shortlist to the user.
+- The user must explicitly choose a result by number or exact title before any download begins.
+- Only skip this confirmation step if the user clearly identifies a previously listed result (for example: `下第6个`, `下载刚才那个 4K Remux`).
+
 ### Step 1: Determine Media Type
-- Movie → use Prowlarr search or Radarr
-- TV Show → use Prowlarr search or Sonarr
+- Movie keywords: 电影, movie, 片子, BluRay, Remux, 1080p, 2160p, 年份明确的单片
+- TV keywords: 剧, TV, series, season, S01, EP, 全集, 连载
+- Movie → use Prowlarr search, then add the chosen release to Radarr
+- TV Show → use Prowlarr search, then add the chosen release or series to Sonarr
+- If ambiguous, ask one short follow-up question only after presenting the best inferred guess
 
 ### Step 2: Search via Prowlarr API
 ```bash
@@ -30,7 +40,8 @@ GET http://192.168.10.45:9696/api/v1/search?query={title}&type=search
 Header: X-Api-Key: {prowlarr_api_key}
 ```
 
-Parse results and present to user as table:
+Parse results and present to user as a ranked shortlist with:
+- Number
 - Title
 - Size (human readable)
 - Seeders
@@ -38,14 +49,34 @@ Parse results and present to user as table:
 - Quality (parse from title: resolution, codec, HDR, audio)
 - Subtitle info (if in title)
 
-Sort by seeders descending, show top 20.
+Sort by seeders descending, show the top 10-20 results depending on noise level.
+Deduplicate obviously identical releases from different indexers when possible.
+Always include a brief recommendation section such as:
+- Best value
+- Best quality
+- Best subtitle-friendly release
+- Best compact 4K release
+
+Preferred reply format:
+1. `#1 Title ...`
+2. `#2 Title ...`
+3. `#3 Title ...`
+
+Each item should include short inline notes for size, seeders, source, and standout traits.
 
 ### Step 3: User Selection
-Wait for user to pick a result by number.
+Wait for the user to pick a result by number or exact title.
+Do not begin downloading until the user explicitly confirms the choice.
 
 ### Step 4: Download via qBittorrent
-Option A (preferred): Add to Radarr/Sonarr for automated management
-Option B (manual): Add magnet/torrent directly to qBit via API
+Option A (preferred): Add the chosen movie to Radarr or the chosen show to Sonarr for automated management.
+Option B (manual fallback): Add magnet/torrent directly to qBit via API.
+
+Rules:
+- Never start a download from the shortlist unless the user has selected a result.
+- If the user says `下载这个` while replying to a previously listed result, treat that as valid confirmation.
+- For movies, prefer Radarr so the final file is renamed and imported cleanly.
+- For shows, prefer Sonarr so season/episode structure stays correct.
 
 qBit API:
 - Login: POST /api/v2/auth/login
@@ -58,16 +89,30 @@ Poll qBit API for progress:
 ```bash
 GET /api/v2/torrents/info?hashes={hash}
 ```
-Report progress to user when asked or when complete.
+
+Progress policy:
+- Do not spam routine progress updates.
+- Report when one of these happens:
+  - download is accepted into queue
+  - metadata is resolved and real download starts
+  - download completes
+  - import fails or stalls
+  - user explicitly asks for status
 
 ### Step 6: Post-Download
-1. Verify file in media directory
+1. Verify file in the target media directory
 2. Trigger Jellyfin library scan:
    ```bash
    POST http://192.168.10.45:8096/Library/Refresh
    Header: X-Emby-Token: {jellyfin_api_key}
    ```
-3. Bazarr will auto-fetch subtitles
+3. Let Bazarr fetch subtitles automatically
+4. Send a completion message including:
+   - media title
+   - final imported path
+   - file size
+   - whether Jellyfin scan was triggered
+   - whether subtitles are pending or found
 
 ### Step 7: Seeding Rules (Pre-configured)
 - Max ratio: 1.0 (upload = download amount)
@@ -96,7 +141,19 @@ ssh admin@192.168.10.45 "cat /share/CACHEDEV1_DATA/Docker/jellyfin/config/data/j
 ## Example Usage
 User: "帮我搜一下《星际穿越》"
 → Search Prowlarr for "Interstellar 2014"
-→ Present top 20 results sorted by seeders
+→ Present top ranked results with numbered recommendations
 → User picks one
-→ Download via qBit or add to Radarr
-→ Confirm Jellyfin library updated
+→ Add to Radarr
+→ Monitor queue and confirm import
+→ Trigger Jellyfin scan and report completion
+
+User: "下载《爱乐之城》"
+→ Do not download immediately
+→ Search first and present numbered choices
+→ Wait for confirmation such as `下第3个`
+→ Start the chosen release only after confirmation
+
+User: "帮我找一下绝命毒师第一季"
+→ Detect TV workflow
+→ Search and route the chosen result to Sonarr
+→ Confirm season import and Jellyfin update
